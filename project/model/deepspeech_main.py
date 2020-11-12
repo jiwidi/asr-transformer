@@ -33,9 +33,6 @@ def cal_performance(pred, gold, smoothing=0.0):
 
     pred = pred.view(-1, pred.size(2))
     gold = gold.contiguous().view(-1)
-    # print(pred.shape)
-    # print(gold.shape)
-    # print("----------")
     loss = cal_loss(pred, gold, smoothing)
 
     pred = pred.max(1)[1]
@@ -120,6 +117,17 @@ class Transformer(LightningModule):
         encoder_outputs, *_ = self.encoder(input.unsqueeze(0), input_length)
         nbest_hyps = self.decoder.recognize_beam(encoder_outputs[0], char_list, args)
         return nbest_hyps
+
+    def serialize(self, optimizer, epoch, tr_loss, val_loss):
+        package = {
+            "state_dict": self.state_dict(),
+            "optim_dict": optimizer.state_dict(),
+            "epoch": epoch,
+        }
+        if tr_loss is not None:
+            package["tr_loss"] = tr_loss
+            package["val_loss"] = val_loss
+        return package
 
     # ---------------------
     # Pytorch lightning overrides
@@ -262,25 +270,25 @@ class Transformer(LightningModule):
         Return whatever optimizers and learning rate schedulers you want here.
         At least one optimizer is required.
         """
-        optimizer = optim.AdamW(self.parameters(), lr=self.hparams.learning_rate / 10)
+        optimizer = optim.AdamW(self.parameters())
         # lr_scheduler = {'scheduler':optim.lr_scheduler.CyclicLR(optimizer,base_lr=self.hparams.learning_rate/5,max_lr=self.hparams.learning_rate,step_size_up=2000,cycle_momentum=False),
-        lr_scheduler = {
-            "scheduler": optim.lr_scheduler.OneCycleLR(
-                optimizer,
-                max_lr=self.hparams.learning_rate,
-                steps_per_epoch=int(len(self.train_dataloader())),
-                epochs=self.hparams.epochs,
-                anneal_strategy="linear",
-                final_div_factor=0.06,
-                pct_start=0.04,
-            ),
-            # 'scheduler': CosineAnnealingWarmUpRestarts(optimizer, T_0=int(len(self.train_dataloader())*math.pi), T_mult=2, eta_max=self.learning_rate,  T_up=int(len(self.train_dataloader()))*2, gamma=0.8),
-            "name": "learning_rate",  # Name for tensorboard logs
-            "interval": "step",
-            "frequency": 1,
-        }
+        # lr_scheduler = {
+        #     "scheduler": optim.lr_scheduler.OneCycleLR(
+        #         optimizer,
+        #         max_lr=self.hparams.learning_rate,
+        #         steps_per_epoch=int(len(self.train_dataloader())),
+        #         epochs=self.hparams.epochs,
+        #         anneal_strategy="linear",
+        #         final_div_factor=0.06,
+        #         pct_start=0.04,
+        #     ),
+        #     # 'scheduler': CosineAnnealingWarmUpRestarts(optimizer, T_0=int(len(self.train_dataloader())*math.pi), T_mult=2, eta_max=self.learning_rate,  T_up=int(len(self.train_dataloader()))*2, gamma=0.8),
+        #     "name": "learning_rate",  # Name for tensorboard logs
+        #     "interval": "step",
+        #     "frequency": 1,
+        # }
 
-        return [optimizer], [lr_scheduler]
+        return [optimizer]  # , [lr_scheduler]
 
     def prepare_data(self):
         if not os.path.exists(self.hparams.data_root):

@@ -64,7 +64,8 @@ def main(args):
         # precision=args.precision,
         logger=logger,
         # checkpoint_callback= checkpoint_callback,
-        callbacks=[lr_logger, early_stop, checkpoint_callback],
+        callbacks=[lr_logger, early_stop],
+        checkpoint_callback=checkpoint_callback
         # resume_from_checkpoint='/mnt/data/github/DeepSpeech-pytorch/runs/DeepSpeech_onecycle_defaultbits/version_1/checkpoints/epoch=12.ckpt',
         # auto_lr_find='learning_rate',
     )
@@ -101,7 +102,7 @@ def run_cli():
     parser.add_argument("--early_stop_metric", default="wer", type=str)
     parser.add_argument("--logs_path", default="runs/", type=str)
     parser.add_argument("--experiment_name", default="DeepSpeech", type=str)
-    parser.add_argument("--early_stop_patience", default=3, type=int)
+    parser.add_argument("--early_stop_patience", default=5, type=int)
     parser.add_argument("--resume_from_checkpoint", default=None, type=str)
     # Precission args
     parser.add_argument("--amp_level", default="02", type=str)
