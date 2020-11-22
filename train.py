@@ -16,7 +16,7 @@ from pytorch_lightning.callbacks import (
 )
 from pytorch_lightning.loggers import TensorBoardLogger
 
-from project.model.deepspeech_main import Transformer
+from project.model.transformer import Transformer
 
 # warnings.filterwarnings("ignore", category=DeprecationWarning)
 warnings.simplefilter("ignore", UserWarning)
@@ -44,7 +44,7 @@ def main(args):
     # Checkpoint manager
     checkpoint_callback = ModelCheckpoint(
         verbose=True,
-        save_top_k=5,  # Save 5 Top models
+        save_top_k=3,  # Save 5 Top models
         monitor="wer",
         mode="min",
         period=1,
@@ -64,9 +64,12 @@ def main(args):
         # precision=args.precision,
         logger=logger,
         # checkpoint_callback= checkpoint_callback,
+        # limit_train_batches=0.005,
+        # limit_val_batches=0.1,
         callbacks=[lr_logger, early_stop],
-        checkpoint_callback=checkpoint_callback
-        # resume_from_checkpoint='/mnt/data/github/DeepSpeech-pytorch/runs/DeepSpeech_onecycle_defaultbits/version_1/checkpoints/epoch=12.ckpt',
+        checkpoint_callback=checkpoint_callback,
+        val_check_interval=0.33,
+        # resume_from_checkpoint='/mnt/kingston/github/asr-transformer/runs/DeepSpeech/version_1/checkpoints/epoch=27.ckpt',
         # auto_lr_find='learning_rate',
     )
     # ------------------------
@@ -90,19 +93,17 @@ def run_cli():
     parser.add_argument("--data_root", default="/mnt/kingston/datasets/", type=str)
     parser.add_argument(
         "--data_train",
-        default=["train-clean-100"],  # , "train-clean-360", "train-other-500"],
+        default=["train-clean-100", "train-clean-360", "train-other-500"],
     )
     parser.add_argument("--data_test", default=["test-clean"])
     # Training params (opt)
     parser.add_argument("--epochs", default=100, type=int)
-    parser.add_argument("--learning_rate", default=0.0005, type=float)
+    parser.add_argument("--learning_rate", default=0.0003, type=float)
     # parser.add_argument("--precission", default=16, type=int)
-
-    # parser.add_argument("--limit_train_batches", default=0.001, type=float)
     parser.add_argument("--early_stop_metric", default="wer", type=str)
     parser.add_argument("--logs_path", default="runs/", type=str)
-    parser.add_argument("--experiment_name", default="DeepSpeech", type=str)
-    parser.add_argument("--early_stop_patience", default=5, type=int)
+    parser.add_argument("--experiment_name", default="TransformerASR", type=str)
+    parser.add_argument("--early_stop_patience", default=50, type=int)
     parser.add_argument("--resume_from_checkpoint", default=None, type=str)
     # Precission args
     parser.add_argument("--amp_level", default="02", type=str)

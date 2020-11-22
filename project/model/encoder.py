@@ -51,6 +51,7 @@ class Encoder(nn.Module):
         Args:
             padded_input: N x T x D
             input_lengths: N
+
         Returns:
             enc_output: N x T x H
         """

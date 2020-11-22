@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
 
-from config import IGNORE_ID
+from utils import IGNORE_ID
 
 
 def cal_performance(pred, gold, smoothing=0.0):
@@ -13,9 +13,7 @@ def cal_performance(pred, gold, smoothing=0.0):
 
     pred = pred.view(-1, pred.size(2))
     gold = gold.contiguous().view(-1)
-    # print(pred.shape)
-    # print(gold.shape)
-    # print("----------")
+
     loss = cal_loss(pred, gold, smoothing)
 
     pred = pred.max(1)[1]
@@ -25,12 +23,11 @@ def cal_performance(pred, gold, smoothing=0.0):
 
     return loss, n_correct
 
-
 def cal_loss(pred, gold, smoothing=0.0):
     """Calculate cross entropy loss, apply label smoothing if needed.
     """
 
-    if True or smoothing > 0.0:
+    if smoothing > 0.0:
         eps = smoothing
         n_class = pred.size(1)
 
@@ -47,8 +44,8 @@ def cal_loss(pred, gold, smoothing=0.0):
         loss = -(one_hot * log_prb).sum(dim=1)
         loss = loss.masked_select(non_pad_mask).sum() / n_word
     else:
-        loss = F.cross_entropy(
-            pred, gold, ignore_index=IGNORE_ID, reduction="elementwise_mean"
-        )
+        loss = F.cross_entropy(pred, gold,
+                               ignore_index=IGNORE_ID,
+                               reduction='elementwise_mean')
 
     return loss

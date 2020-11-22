@@ -5,19 +5,13 @@ import torch.nn.functional as F
 from .attention import MultiHeadAttention
 from .module import PositionalEncoding, PositionwiseFeedForward
 from .utils import (
+    IGNORE_ID,
     get_attn_key_pad_mask,
     get_attn_pad_mask,
     get_non_pad_mask,
     get_subsequent_mask,
     pad_list,
 )
-
-IGNORE_ID = -1
-
-# filename = 'bigram_freq.pkl'
-# print('loading {}...'.format(filename))
-# with open(filename, 'rb') as file:
-#     bigram_freq = pickle.load(file)
 
 
 class Decoder(nn.Module):
@@ -72,7 +66,7 @@ class Decoder(nn.Module):
         if tgt_emb_prj_weight_sharing:
             # Share the weight matrix between target word embedding & the final logit dense layer
             self.tgt_word_prj.weight = self.tgt_word_emb.weight
-            self.x_logit_scale = d_model ** -0.5
+            self.x_logit_scale = d_model ** 0.5
         else:
             self.x_logit_scale = 1.0
 
@@ -104,6 +98,7 @@ class Decoder(nn.Module):
         Args:
             padded_input: N x To
             encoder_padded_outputs: N x Ti x H
+
         Returns:
         """
         dec_slf_attn_list, dec_enc_attn_list = [], []
@@ -126,10 +121,9 @@ class Decoder(nn.Module):
         )
 
         # Forward
-        # print(ys_in_pad.shape)
-        dc = self.tgt_word_emb(ys_in_pad.long())
-        dc = dc * self.x_logit_scale + self.positional_encoding(ys_in_pad)
-        dec_output = self.dropout(dc)
+        dec_output = self.tgt_word_emb(ys_in_pad.long())
+        dec_output = dec_output * self.x_logit_scale
+        dec_output = self.dropout(dec_output + self.positional_encoding(ys_in_pad))
 
         for dec_layer in self.layer_stack:
             dec_output, dec_slf_attn, dec_enc_attn = dec_layer(
@@ -160,6 +154,7 @@ class Decoder(nn.Module):
             encoder_outputs: T x H
             char_list: list of character
             args: args.beam
+
         Returns:
             nbest_hyps:
         """
@@ -185,14 +180,7 @@ class Decoder(nn.Module):
             hyps_best_kept = []
             for hyp in hyps:
                 ys = hyp["yseq"]  # 1 x i
-                # last_id = ys.cpu().numpy()[0][-1]
-                # freq = bigram_freq[last_id]
-                # freq = torch.log(torch.from_numpy(freq))
-                # # print(freq.dtype)
-                # freq = freq.type(torch.float).to(device)
-                # print(freq.dtype)
-                # print('freq.size(): ' + str(freq.size()))
-                # print('freq: ' + str(freq))
+
                 # -- Prepare masks
                 non_pad_mask = torch.ones_like(ys).float().unsqueeze(-1)  # 1xix1
                 slf_attn_mask = get_subsequent_mask(ys)
@@ -213,12 +201,8 @@ class Decoder(nn.Module):
                     )
 
                 seq_logit = self.tgt_word_prj(dec_output[:, -1])
-                # local_scores = F.log_softmax(seq_logit, dim=1)
-                local_scores = F.log_softmax(seq_logit, dim=1)
-                # print('local_scores.size(): ' + str(local_scores.size()))
-                # local_scores += freq
-                # print('local_scores: ' + str(local_scores))
 
+                local_scores = F.log_softmax(seq_logit, dim=1)
                 # topk scores
                 local_best_scores, local_best_ids = torch.topk(
                     local_scores, beam, dim=1
@@ -265,15 +249,16 @@ class Decoder(nn.Module):
                     remained_hyps.append(hyp)
 
             hyps = remained_hyps
-            # if len(hyps) > 0:
-            #     print('remeined hypothes: ' + str(len(hyps)))
-            # else:
-            #     print('no hypothesis. Finish decoding.')
-            #     break
-            #
-            # for hyp in hyps:
-            #     print('hypo: ' + ''.join([char_list[int(x)]
-            #                               for x in hyp['yseq'][0, 1:]]))
+            if len(hyps) > 0:
+                print("remeined hypothes: " + str(len(hyps)))
+            else:
+                print("no hypothesis. Finish decoding.")
+                break
+
+            for hyp in hyps:
+                print(
+                    "hypo: " + "".join([char_list[int(x)] for x in hyp["yseq"][0, 1:]])
+                )
         # end for i in range(maxlen)
         nbest_hyps = sorted(ended_hyps, key=lambda x: x["score"], reverse=True)[
             : min(len(ended_hyps), nbest)
